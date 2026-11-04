@@ -36,6 +36,9 @@
     [Parameter(Mandatory = $false, HelpMessage = 'Include Exchange Online tests')]
     [bool]$IncludeExchange = $true,
 
+    [Parameter(Mandatory = $false, HelpMessage = 'Include Security & Compliance (Purview) tests')]
+    [bool]$IncludeSecurityCompliance = $false,
+
     [Parameter(Mandatory = $false, HelpMessage = 'Include Teams tests')]
     [bool]$IncludeTeams = $true,
 
@@ -290,6 +293,32 @@ PROCESS {
         Write-Host "✔️ Exchange Online connected."
     } else {
         Write-Host '📃 Exchange Online tests will be skipped.'
+    }
+
+    # Check if we need to connect to Security & Compliance (Purview) PowerShell.
+    # It rides on the ExchangeOnlineManagement module and the same app-only access token as Exchange Online.
+    if ($IncludeSecurityCompliance) {
+        try {
+            if (-not (Get-Module -Name ExchangeOnlineManagement)) {
+                Install-Module ExchangeOnlineManagement -Scope CurrentUser -Force
+                Import-Module ExchangeOnlineManagement
+            }
+            if (-not $outlookToken) {
+                $outlookToken = Get-MtAccessTokenUsingCli -ResourceUrl 'https://outlook.office365.com'
+            }
+
+            # App-only authentication needs the organization's primary domain.
+            $domains = Invoke-MgGraphRequest -Uri 'https://graph.microsoft.com/v1.0/domains?$select=id,isDefault'
+            $primaryDomain = $domains.value | Where-Object { $_.isDefault -eq $true } | Select-Object -ExpandProperty id -First 1
+
+            Connect-IPPSSession -AccessToken $outlookToken -Organization $primaryDomain -ShowBanner:$false -ErrorAction Stop
+            Write-Host '✔️ Security & Compliance connected.'
+        } catch {
+            # Do not fail the run: the Security & Compliance tests are skipped, as before.
+            Write-Warning "Could not connect to Security & Compliance, its tests will be skipped. $($_.Exception.Message)"
+        }
+    } else {
+        Write-Host '📃 Security & Compliance tests will be skipped.'
     }
 
     # Check if we need to connect to Teams

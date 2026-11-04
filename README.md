@@ -27,6 +27,7 @@ Check out the [Maester documentation](https://maester.dev/) for more information
 | `include_public_tests`        | Maester 2 only. Install public tests from module. Empty means `true`. No effect on Maester 3 (use `skip_builtin_tests`). | ❌       | (empty, `true`)             |
 | `include_private_tests`       | Check out the current repository. Maester 2: run the private tests in it. Maester 3: use its `maester-config.json` and custom tests, if there are any; set to `false` when the repository only holds the workflow file. | ❌       | `true`                      |
 | `include_exchange`            | Include Exchange Online tests in the test run.                                                 | ❌       | `false`                     |
+| `include_security_compliance` | Include Security & Compliance (Purview) tests in the test run. Needs a role, see below.       | ❌       | `false`                     |
 | `include_teams`               | Include Teams tests in the test run.                                                           | ❌       | `true`                      |
 | `include_longrunning_tests`   | Include long running tests.                                                                    | ❌       | `false`                     |
 | `include_preview_tests`       | Include preview tests.                                                                         | ❌       | `false`                     |
@@ -51,6 +52,9 @@ Check out the [Maester documentation](https://maester.dev/) for more information
 | `notification_teams_webhook`  | Webhook URL for sending test results to Teams.                                                 | ❌       |                             |
 | `notification_teams_channel_id` | The ID of the Teams channel to send the test results to.                                     | ❌       |                             |
 | `notification_teams_team_id`  | The ID of the Teams team to send the test results to.                                          | ❌       |                             |
+
+> [!NOTE]
+> `include_security_compliance` connects to Security & Compliance (Purview) PowerShell with the same app-only access token as Exchange Online. Exchange permissions are not Microsoft Graph API permissions: the app's service principal also needs a role that can read the compliance configuration (for example a read-only role in Exchange Online or Purview). Tests that query data the role cannot read fail or are skipped. If the connection fails, a warning is logged and the Security & Compliance tests are skipped as before.
 
 ## 📤 Outputs
 
@@ -108,6 +112,7 @@ jobs:
           include_public_tests: true
           include_private_tests: false
           include_exchange: false
+          include_security_compliance: false
           include_teams: false
           # Set a specific version of the powershell module here or 'latest' or 'preview'
           # check out https://www.powershellgallery.com/packages/Maester/
