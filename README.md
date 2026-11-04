@@ -54,7 +54,7 @@ Check out the [Maester documentation](https://maester.dev/) for more information
 | `notification_teams_team_id`  | The ID of the Teams team to send the test results to.                                          | ❌       |                             |
 
 > [!NOTE]
-> `include_security_compliance` connects to Security & Compliance (Purview) PowerShell with the same app-only access token as Exchange Online. Exchange permissions are not Microsoft Graph API permissions: the app's service principal also needs a role that can read the compliance configuration (for example a read-only role in Exchange Online or Purview). Tests that query data the role cannot read fail or are skipped. If the connection fails, a warning is logged and the Security & Compliance tests are skipped as before.
+> `include_security_compliance` connects to Security & Compliance (Purview) PowerShell with its own app-only access token (resource `https://ps.compliance.protection.outlook.com`). Exchange permissions are not Microsoft Graph API permissions: the app's service principal also needs a role that can read the compliance configuration (for example a read-only role in Exchange Online or Purview). Tests that query data the role cannot read fail or are skipped. If the connection fails, a warning is logged and the Security & Compliance tests are skipped as before.
 
 ## 📤 Outputs
 

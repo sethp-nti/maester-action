@@ -296,22 +296,21 @@ PROCESS {
     }
 
     # Check if we need to connect to Security & Compliance (Purview) PowerShell.
-    # It rides on the ExchangeOnlineManagement module and the same app-only access token as Exchange Online.
+    # It uses the ExchangeOnlineManagement module with its own app-only access token.
+    # See https://maester.dev/docs/connect-maester/connect-maester-advanced
     if ($IncludeSecurityCompliance) {
         try {
             if (-not (Get-Module -Name ExchangeOnlineManagement)) {
                 Install-Module ExchangeOnlineManagement -Scope CurrentUser -Force
                 Import-Module ExchangeOnlineManagement
             }
-            if (-not $outlookToken) {
-                $outlookToken = Get-MtAccessTokenUsingCli -ResourceUrl 'https://outlook.office365.com'
-            }
+            $complianceToken = Get-MtAccessTokenUsingCli -ResourceUrl 'https://ps.compliance.protection.outlook.com'
 
-            # App-only authentication needs the organization's primary domain.
-            $domains = Invoke-MgGraphRequest -Uri 'https://graph.microsoft.com/v1.0/domains?$select=id,isDefault'
-            $primaryDomain = $domains.value | Where-Object { $_.isDefault -eq $true } | Select-Object -ExpandProperty id -First 1
+            # Connect-IPPSSession needs the tenant's initial (MOERA) domain, e.g. contoso.onmicrosoft.com.
+            $domains = Invoke-MgGraphRequest -Uri 'https://graph.microsoft.com/v1.0/domains?$select=id,isInitial'
+            $initialDomain = $domains.value | Where-Object { $_.isInitial -eq $true } | Select-Object -ExpandProperty id -First 1
 
-            Connect-IPPSSession -AccessToken $outlookToken -Organization $primaryDomain -ShowBanner:$false -ErrorAction Stop
+            Connect-IPPSSession -AccessToken $complianceToken -Organization $initialDomain -ShowBanner:$false -ErrorAction Stop
             Write-Host '✔️ Security & Compliance connected.'
         } catch {
             # Do not fail the run: the Security & Compliance tests are skipped, as before.
