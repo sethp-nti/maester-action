@@ -224,3 +224,63 @@ function Test-MaesterUsesTestPath {
 
     $MajorVersion -lt 3 -or $IncludePrivateTests
 }
+
+function Test-MaesterSecurityComplianceInput {
+    <#
+    .SYNOPSIS
+        Returns whether the Security & Compliance inputs are a valid combination.
+    .DESCRIPTION
+        Security & Compliance rides on the Exchange Online connection, as in Connect-Maester, so
+        include_security_compliance needs include_exchange.
+    #>
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param (
+        [Parameter(Mandatory = $true)]
+        [bool]$IncludeSecurityCompliance,
+
+        [Parameter(Mandatory = $true)]
+        [bool]$IncludeExchange
+    )
+
+    -not $IncludeSecurityCompliance -or $IncludeExchange
+}
+
+function Select-MaesterInitialDomain {
+    <#
+    .SYNOPSIS
+        Returns the tenant's initial (MOERA) domain, e.g. contoso.onmicrosoft.com, from a Graph /domains response.
+    .DESCRIPTION
+        Connect-IPPSSession needs the initial domain as -Organization for app-only authentication.
+        Returns $null when no initial domain is in the list.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param (
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [AllowNull()]
+        [object[]]$Domain
+    )
+
+    # Graph returns hashtables; member access works for both hashtables and objects.
+    $Domain | Where-Object { $_ -and $_.isInitial -eq $true } | ForEach-Object { $_.id } | Select-Object -First 1
+}
+
+function ConvertTo-WorkflowCommandValue {
+    <#
+    .SYNOPSIS
+        Escapes text for a GitHub workflow command such as ::warning::, so it cannot inject other commands.
+    .LINK
+        https://docs.github.com/actions/reference/workflows-and-actions/workflow-commands
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param (
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyString()]
+        [string]$Value
+    )
+
+    $Value -replace '%', '%25' -replace "`r", '%0D' -replace "`n", '%0A'
+}

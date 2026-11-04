@@ -104,3 +104,57 @@ Describe 'Test-MaesterUsesTestPath' {
         Test-MaesterUsesTestPath -MajorVersion 3 -IncludePrivateTests $false | Should -BeFalse
     }
 }
+
+Describe 'Test-MaesterSecurityComplianceInput' {
+    It 'is valid when Security & Compliance is off' {
+        Test-MaesterSecurityComplianceInput -IncludeSecurityCompliance $false -IncludeExchange $false | Should -BeTrue
+        Test-MaesterSecurityComplianceInput -IncludeSecurityCompliance $false -IncludeExchange $true | Should -BeTrue
+    }
+    It 'is valid when Security & Compliance and Exchange Online are on' {
+        Test-MaesterSecurityComplianceInput -IncludeSecurityCompliance $true -IncludeExchange $true | Should -BeTrue
+    }
+    It 'is invalid when Security & Compliance is on without Exchange Online' {
+        Test-MaesterSecurityComplianceInput -IncludeSecurityCompliance $true -IncludeExchange $false | Should -BeFalse
+    }
+}
+
+Describe 'Select-MaesterInitialDomain' {
+    It 'returns the initial domain from Graph hashtables' {
+        $domains = @(
+            @{ id = 'contoso.com'; isInitial = $false }
+            @{ id = 'contoso.onmicrosoft.com'; isInitial = $true }
+        )
+        Select-MaesterInitialDomain -Domain $domains | Should -Be 'contoso.onmicrosoft.com'
+    }
+    It 'returns the initial domain from objects' {
+        $domains = @(
+            [pscustomobject]@{ id = 'contoso.onmicrosoft.com'; isInitial = $true }
+            [pscustomobject]@{ id = 'contoso.com'; isInitial = $false }
+        )
+        Select-MaesterInitialDomain -Domain $domains | Should -Be 'contoso.onmicrosoft.com'
+    }
+    It 'returns nothing when there is no initial domain' {
+        Select-MaesterInitialDomain -Domain @(@{ id = 'contoso.com'; isInitial = $false }) | Should -BeNullOrEmpty
+    }
+    It 'returns nothing for an empty or missing list' {
+        Select-MaesterInitialDomain -Domain @() | Should -BeNullOrEmpty
+        Select-MaesterInitialDomain -Domain $null | Should -BeNullOrEmpty
+    }
+}
+
+Describe 'ConvertTo-WorkflowCommandValue' {
+    It 'escapes percent signs and line breaks' {
+        ConvertTo-WorkflowCommandValue -Value "50%`r`nnext" | Should -Be '50%25%0D%0Anext'
+    }
+    It 'stops a message from starting a new workflow command' {
+        $escaped = ConvertTo-WorkflowCommandValue -Value "failed`n::error::injected"
+        $escaped | Should -Not -Match "`n"
+        $escaped | Should -Be 'failed%0A::error::injected'
+    }
+    It 'leaves plain text unchanged' {
+        ConvertTo-WorkflowCommandValue -Value 'Access denied' | Should -Be 'Access denied'
+    }
+    It 'accepts an empty string' {
+        ConvertTo-WorkflowCommandValue -Value '' | Should -Be ''
+    }
+}

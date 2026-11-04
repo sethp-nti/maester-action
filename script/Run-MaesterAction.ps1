@@ -146,8 +146,7 @@ BEGIN {
     #endregion
 
     #region Validate inputs for Security & Compliance
-    # Security & Compliance rides on the Exchange Online connection, as in Connect-Maester.
-    if ($IncludeSecurityCompliance -and -not $IncludeExchange) {
+    if (-not (Test-MaesterSecurityComplianceInput -IncludeSecurityCompliance $IncludeSecurityCompliance -IncludeExchange $IncludeExchange)) {
         Exit-MaesterAction -Title 'Exchange Online required' -Message "'include_security_compliance' needs an Exchange Online connection, so 'include_exchange' must be 'true'."
     }
     #endregion
@@ -312,7 +311,7 @@ PROCESS {
 
             # Connect-IPPSSession needs the tenant's initial (MOERA) domain, e.g. contoso.onmicrosoft.com.
             $domains = Invoke-MgGraphRequest -Method GET -Uri 'https://graph.microsoft.com/v1.0/domains?$select=id,isInitial'
-            $initialDomain = $domains.value | Where-Object { $_.isInitial -eq $true } | Select-Object -ExpandProperty id -First 1
+            $initialDomain = Select-MaesterInitialDomain -Domain $domains.value
             if ([string]::IsNullOrWhiteSpace($initialDomain)) {
                 throw 'The initial (onmicrosoft.com) domain of the tenant was not found.'
             }
@@ -336,8 +335,7 @@ PROCESS {
         } catch {
             # Do not fail the run: the Security & Compliance tests are skipped, as before.
             Write-Host '⚠️ Security & Compliance tests will be skipped.'
-            # Escape the message so it cannot inject other workflow commands.
-            $errorMessage = $_.Exception.Message -replace '%', '%25' -replace "`r", '%0D' -replace "`n", '%0A'
+            $errorMessage = ConvertTo-WorkflowCommandValue -Value $_.Exception.Message
             Write-Host "::warning title=Security & Compliance not connected::Could not connect to Security & Compliance, so its tests are skipped. $errorMessage"
         }
 
@@ -350,7 +348,7 @@ PROCESS {
                     Select-Object -ExpandProperty ModuleName |
                     Import-Module -Function 'Get-AdminAuditLogConfig' > $null
             } catch {
-                $errorMessage = $_.Exception.Message -replace '%', '%25' -replace "`r", '%0D' -replace "`n", '%0A'
+                $errorMessage = ConvertTo-WorkflowCommandValue -Value $_.Exception.Message
                 Write-Host "::warning title=Get-AdminAuditLogConfig not restored::$errorMessage"
             }
         }
