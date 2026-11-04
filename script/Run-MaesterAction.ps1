@@ -311,7 +311,19 @@ PROCESS {
             $initialDomain = $domains.value | Where-Object { $_.isInitial -eq $true } | Select-Object -ExpandProperty id -First 1
 
             Connect-IPPSSession -AccessToken $complianceToken -Organization $initialDomain -ShowBanner:$false -ErrorAction Stop
-            Write-Host '✔️ Security & Compliance connected.'
+
+            # Without a Microsoft Entra role that covers Security & Compliance (Security Reader or Global Reader),
+            # the session loads without cmdlets such as Get-ProtectionAlert and every ORCA test errors.
+            # Disconnect in that case so the ORCA tests run as they do without Security & Compliance.
+            # See https://maester.dev/docs/faq
+            if (Get-Command -Name Get-ProtectionAlert -ErrorAction SilentlyContinue) {
+                Write-Host '✔️ Security & Compliance connected.'
+            } else {
+                Get-ConnectionInformation | Where-Object { $_.IsEopSession -eq $true } | ForEach-Object {
+                    Disconnect-ExchangeOnline -ConnectionId $_.ConnectionId -Confirm:$false -ErrorAction SilentlyContinue
+                }
+                Write-Warning 'Security & Compliance connected, but the app has no Microsoft Entra role that covers it (Get-ProtectionAlert is missing), so it was disconnected and its tests will be skipped. Assign Security Reader or Global Reader to the app. See https://maester.dev/docs/faq'
+            }
         } catch {
             # Do not fail the run: the Security & Compliance tests are skipped, as before.
             Write-Warning "Could not connect to Security & Compliance, its tests will be skipped. $($_.Exception.Message)"
