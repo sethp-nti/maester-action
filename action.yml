@@ -23,7 +23,7 @@ inputs:
     required: false
     default: "false"
   include_security_compliance:
-    description: "Include Security & Compliance (Purview) tests in the test run. Connects with its own app-only access token. The app registration also needs the required Exchange/Purview role for the tests that query compliance data."
+    description: "Include Security & Compliance (Purview) tests in the test run. Requires include_exchange: true, and the Security Reader or Global Reader role in Microsoft Entra ID for the app."
     required: false
     default: "false"
   include_teams:

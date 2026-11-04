@@ -145,6 +145,13 @@ BEGIN {
     }
     #endregion
 
+    #region Validate inputs for Security & Compliance
+    # Security & Compliance rides on the Exchange Online connection, as in Connect-Maester.
+    if ($IncludeSecurityCompliance -and -not $IncludeExchange) {
+        Exit-MaesterAction -Title 'Exchange Online required' -Message "'include_security_compliance' needs an Exchange Online connection, so 'include_exchange' must be 'true'."
+    }
+    #endregion
+
     #region Resolve and install Maester
     $requestedVersion = $MaesterVersion.Trim()
     if ([string]::IsNullOrEmpty($requestedVersion)) { $requestedVersion = 'latest' }
@@ -296,19 +303,19 @@ PROCESS {
     }
 
     # Check if we need to connect to Security & Compliance (Purview) PowerShell.
-    # It uses the ExchangeOnlineManagement module with its own app-only access token.
-    # See https://maester.dev/docs/connect-maester/connect-maester-advanced
+    # It uses the ExchangeOnlineManagement module that the Exchange Online step installed, with its own
+    # app-only access token. See https://maester.dev/docs/connect-maester/connect-maester-advanced
     if ($IncludeSecurityCompliance) {
+        $securityComplianceConnected = $false
         try {
-            if (-not (Get-Module -Name ExchangeOnlineManagement)) {
-                Install-Module ExchangeOnlineManagement -Scope CurrentUser -Force
-                Import-Module ExchangeOnlineManagement
-            }
             $complianceToken = Get-MtAccessTokenUsingCli -ResourceUrl 'https://ps.compliance.protection.outlook.com'
 
             # Connect-IPPSSession needs the tenant's initial (MOERA) domain, e.g. contoso.onmicrosoft.com.
-            $domains = Invoke-MgGraphRequest -Uri 'https://graph.microsoft.com/v1.0/domains?$select=id,isInitial'
+            $domains = Invoke-MgGraphRequest -Method GET -Uri 'https://graph.microsoft.com/v1.0/domains?$select=id,isInitial'
             $initialDomain = $domains.value | Where-Object { $_.isInitial -eq $true } | Select-Object -ExpandProperty id -First 1
+            if ([string]::IsNullOrWhiteSpace($initialDomain)) {
+                throw 'The initial (onmicrosoft.com) domain of the tenant was not found.'
+            }
 
             Connect-IPPSSession -AccessToken $complianceToken -Organization $initialDomain -ShowBanner:$false -ErrorAction Stop
 
@@ -317,16 +324,35 @@ PROCESS {
             # Disconnect in that case so the ORCA tests run as they do without Security & Compliance.
             # See https://maester.dev/docs/faq
             if (Get-Command -Name Get-ProtectionAlert -ErrorAction SilentlyContinue) {
+                $securityComplianceConnected = $true
                 Write-Host '✔️ Security & Compliance connected.'
             } else {
                 Get-ConnectionInformation | Where-Object { $_.IsEopSession -eq $true } | ForEach-Object {
                     Disconnect-ExchangeOnline -ConnectionId $_.ConnectionId -Confirm:$false -ErrorAction SilentlyContinue
                 }
-                Write-Warning 'Security & Compliance connected, but the app has no Microsoft Entra role that covers it (Get-ProtectionAlert is missing), so it was disconnected and its tests will be skipped. Assign Security Reader or Global Reader to the app. See https://maester.dev/docs/faq'
+                Write-Host '⚠️ Security & Compliance tests will be skipped.'
+                Write-Host '::warning title=Security & Compliance role missing::The app has no Microsoft Entra role for Security & Compliance, so its tests are skipped. Assign Security Reader or Global Reader to the app, see https://maester.dev/docs/faq'
             }
         } catch {
             # Do not fail the run: the Security & Compliance tests are skipped, as before.
-            Write-Warning "Could not connect to Security & Compliance, its tests will be skipped. $($_.Exception.Message)"
+            Write-Host '⚠️ Security & Compliance tests will be skipped.'
+            # Escape the message so it cannot inject other workflow commands.
+            $errorMessage = $_.Exception.Message -replace '%', '%25' -replace "`r", '%0D' -replace "`n", '%0A'
+            Write-Host "::warning title=Security & Compliance not connected::Could not connect to Security & Compliance, so its tests are skipped. $errorMessage"
+        }
+
+        # Connect-IPPSSession imports a temporary module that breaks Get-AdminAuditLogConfig. Restore the
+        # Exchange Online version, as Connect-Maester does. See https://github.com/maester365/maester/issues/1045
+        if ($securityComplianceConnected) {
+            try {
+                Remove-Item -Path 'Function:\Get-AdminAuditLogConfig' -Force -ErrorAction SilentlyContinue
+                Get-ConnectionInformation | Where-Object { $_.IsEopSession -ne $true -and $_.State -eq 'Connected' } |
+                    Select-Object -ExpandProperty ModuleName |
+                    Import-Module -Function 'Get-AdminAuditLogConfig' > $null
+            } catch {
+                $errorMessage = $_.Exception.Message -replace '%', '%25' -replace "`r", '%0D' -replace "`n", '%0A'
+                Write-Host "::warning title=Get-AdminAuditLogConfig not restored::$errorMessage"
+            }
         }
     } else {
         Write-Host '📃 Security & Compliance tests will be skipped.'
