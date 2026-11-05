@@ -27,6 +27,7 @@ Check out the [Maester documentation](https://maester.dev/) for more information
 | `include_public_tests`        | Maester 2 only. Install public tests from module. Empty means `true`. No effect on Maester 3 (use `skip_builtin_tests`). | ❌       | (empty, `true`)             |
 | `include_private_tests`       | Check out the current repository. Maester 2: run the private tests in it. Maester 3: use its `maester-config.json` and custom tests, if there are any; set to `false` when the repository only holds the workflow file. | ❌       | `true`                      |
 | `include_exchange`            | Include Exchange Online tests in the test run.                                                 | ❌       | `false`                     |
+| `include_security_compliance` | Include Security & Compliance tests. Requires `include_exchange` and the **Security Reader** Entra role for the app. | ❌       | `false`                     |
 | `include_teams`               | Include Teams tests in the test run.                                                           | ❌       | `true`                      |
 | `include_longrunning_tests`   | Include long running tests.                                                                    | ❌       | `false`                     |
 | `include_preview_tests`       | Include preview tests.                                                                         | ❌       | `false`                     |

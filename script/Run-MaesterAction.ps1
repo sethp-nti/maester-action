@@ -36,6 +36,9 @@
     [Parameter(Mandatory = $false, HelpMessage = 'Include Exchange Online tests')]
     [bool]$IncludeExchange = $true,
 
+    [Parameter(Mandatory = $false, HelpMessage = 'Include Security & Compliance tests')]
+    [bool]$IncludeSecurityCompliance = $false,
+
     [Parameter(Mandatory = $false, HelpMessage = 'Include Teams tests')]
     [bool]$IncludeTeams = $true,
 
@@ -288,6 +291,15 @@ PROCESS {
         $outlookToken = Get-MtAccessTokenUsingCli -ResourceUrl 'https://outlook.office365.com'
         Connect-ExchangeOnline -AccessToken $outlookToken -AppId $ClientId -Organization $TenantId -ShowBanner:$false
         Write-Host "✔️ Exchange Online connected."
+
+        # Security & Compliance needs its own token and the tenant's initial (onmicrosoft.com) domain.
+        # See https://maester.dev/docs/connect-maester/connect-maester-advanced
+        if ($IncludeSecurityCompliance) {
+            $complianceToken = Get-MtAccessTokenUsingCli -ResourceUrl 'https://ps.compliance.protection.outlook.com'
+            $initialDomain = (Invoke-MgGraphRequest -Uri 'https://graph.microsoft.com/v1.0/domains').value | Where-Object { $_.isInitial } | ForEach-Object { $_.id }
+            Connect-IPPSSession -AccessToken $complianceToken -Organization $initialDomain -ShowBanner:$false
+            Write-Host "✔️ Security & Compliance connected."
+        }
     } else {
         Write-Host '📃 Exchange Online tests will be skipped.'
     }

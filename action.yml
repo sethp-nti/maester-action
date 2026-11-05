@@ -22,6 +22,10 @@ inputs:
     description: "Include Exchange Online tests in the test run."
     required: false
     default: "false"
+  include_security_compliance:
+    description: "Include Security & Compliance tests in the test run. Requires include_exchange and the Security Reader role for the app."
+    required: false
+    default: "false"
   include_teams:
     description: "Include Teams tests in the test run."
     required: false
@@ -206,6 +210,7 @@ runs:
           -ExcludeTestIds '${{ inputs.exclude_test_ids }}' `
           -ConfigPath '${{ inputs.config_path }}' `
           -IncludeExchange ('${{ inputs.include_exchange }}' -eq 'true') `
+          -IncludeSecurityCompliance ('${{ inputs.include_security_compliance }}' -eq 'true') `
           -IncludeTeams ('${{ inputs.include_teams }}' -eq 'true') `
           -IncludeLongRunning ('${{ inputs.include_longrunning_tests }}' -eq 'true') `
           -IncludePreview ('${{ inputs.include_preview_tests }}' -eq 'true') `
